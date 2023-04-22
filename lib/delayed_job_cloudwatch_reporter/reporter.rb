@@ -42,8 +42,10 @@ module DelayedJobCloudwatchReporter
 
     def with_leader_lock
       if defined?(ActiveRecord::Base.connection.adapter_name) && ActiveRecord::Base.connection.adapter_name == "PostgreSQL"
-        ActiveRecord::Base.connection.execute("SELECT pg_advisory_xact_lock(#{Zlib.crc32("reporter_leader_lock") & 0x7fffffff})")
-        yield
+        ActiveRecord::Base.transaction do
+          ActiveRecord::Base.connection.execute("SELECT pg_advisory_xact_lock(#{Zlib.crc32("reporter_leader_lock") & 0x7fffffff})")
+          yield
+        end
       end
     end
 

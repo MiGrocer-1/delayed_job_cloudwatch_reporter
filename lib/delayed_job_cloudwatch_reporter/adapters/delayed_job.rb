@@ -20,7 +20,7 @@ module DelayedJobCloudwatchReporter
 
       def collect!(store)
         t = Time.now.utc
-        sql = <<~SQL
+        sql = <<~SQL.strip.gsub("\n", " ")
           SELECT COALESCE(queue, 'default'), min(run_at)
           FROM delayed_jobs
           WHERE locked_at IS NULL
