@@ -8,7 +8,7 @@ module DelayedJobCloudwatchReporter
       attr_writer :queues
 
       def queues
-        @queues ||= Set.new(['default'] | (ENV['QUEUES'] || "").split(","))
+        @queues ||= Set.new(['default'] | (ENV['JOB_QUEUES'] || "").split(","))
       end
 
       def enabled?
