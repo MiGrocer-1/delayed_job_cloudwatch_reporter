@@ -17,31 +17,41 @@ module DelayedJobCloudwatchReporter
       Thread.new do
         puts "checking for leader lock"
         begin
-          with_leader_lock do
-            puts "got `leader lock"
-            loop do
-              multiplier = 1 - (rand / 4)
-              sleep 10 * multiplier
+          Timeout::timeout(60*10) {
+            with_leader_lock do
+              puts "got `leader lock"
+              loop do
+                multiplier = 1 - (rand / 4)
+                sleep 10 * multiplier
 
-              begin
-                print "collecting data"
-                @adapters.map { |a| a.collect!(store) }
-                report!(store)
-              rescue => ex
-                puts "Exception: #{ex.message}"
-                puts ex.backtrace
+                begin
+                  print "collecting data"
+                  @adapters.map { |a| a.collect!(store) }
+                  report!(store)
+                rescue => ex
+                  puts "Exception: #{ex.message}"
+                  puts ex.backtrace
+                end
               end
             end
-          end
+            puts "killed leader lock"
+          }
         rescue => e
           puts e.message
           puts e.backtrace
+        ensure
+          @started = false
         end
       end
     end
 
     def with_leader_lock
-      if defined?(ActiveRecord::Base.connection.adapter_name) && ActiveRecord::Base.connection.adapter_name == "PostgreSQL"
+      if defined?(Redlock::Client)
+        client
+        redis.lock("reporter_leader_lock") do
+
+        end
+      elsif defined?(ActiveRecord::Base.connection.adapter_name) && ActiveRecord::Base.connection.adapter_name == "PostgreSQL"
         ActiveRecord::Base.transaction do
           ActiveRecord::Base.connection.execute("SELECT pg_advisory_xact_lock(#{Zlib.crc32("reporter_leader_lock") & 0x7fffffff})")
           yield
