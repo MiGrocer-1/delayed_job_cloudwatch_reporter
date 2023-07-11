@@ -41,17 +41,13 @@ module DelayedJobCloudwatchReporter
           puts e.backtrace
         ensure
           @started = false
+          ActiveRecord::Base.connection_pool.release_connection
         end
       end
     end
 
     def with_leader_lock
-      if defined?(Redlock::Client)
-        client
-        redis.lock("reporter_leader_lock") do
-
-        end
-      elsif defined?(ActiveRecord::Base.connection.adapter_name) && ActiveRecord::Base.connection.adapter_name == "PostgreSQL"
+      if defined?(ActiveRecord::Base.connection.adapter_name) && ActiveRecord::Base.connection.adapter_name == "PostgreSQL"
         ActiveRecord::Base.transaction do
           ActiveRecord::Base.connection.execute("SELECT pg_advisory_xact_lock(#{Zlib.crc32("reporter_leader_lock") & 0x7fffffff})")
           yield
